@@ -1,24 +1,39 @@
+const log = std.log.scoped(.main);
+
+pub fn main() !u8 {
+    defer io.stdout_buffer.flush() catch {};
+    try branchArgv(std.os.argv);
+    return 0;
+}
+
+fn printUsage(argv: [][*:0]u8) void {
+    io.err.print("Usage: {s} <subcommand>\n\n", .{argv[0]}) catch {};
+    io.err.print("Available subcommands:\n\n", .{}) catch {};
+
+    const subcommand_fmt = "{s: <8} - {s}\n";
+    io.err.print(subcommand_fmt, .{ "gen", "generate input json blob" }) catch {};
+}
+
+fn branchArgv(argv: [][*:0]u8) !void {
+    log.debug("{s}", .{argv});
+
+    if (argv.len < 2) {
+        printUsage(argv);
+        return error.InvalidArguments;
+    }
+
+    if (std.mem.eql(u8, "gen", std.mem.sliceTo(argv[1], '\x00'))) {
+        return try gen.main(argv[1..]);
+    }
+
+    printUsage(argv);
+    return error.InvalidArguments;
+}
+
+test {
+    std.testing.refAllDeclsRecursive(@This());
+}
+
 const std = @import("std");
-
-pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
-
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
-
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try bw.flush(); // don't forget to flush!
-}
-
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
-}
+const io = @import("io.zig");
+const gen = @import("gen.zig");
