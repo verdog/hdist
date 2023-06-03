@@ -38,13 +38,6 @@ const Distribution = enum {
 fn gen(dist: Distribution, seed: u64, num: u64) !void {
     log.debug("{} {} {}", .{ dist, seed, num });
 
-    return switch (dist) {
-        .clustered => genClustered(seed, num),
-        .uniform => genUniform(seed, num),
-    };
-}
-
-fn genClustered(seed: u64, num: u64) !void {
     var rng_engine = std.rand.DefaultPrng.init(seed);
     const rng = rng_engine.random();
 
@@ -64,31 +57,42 @@ fn genClustered(seed: u64, num: u64) !void {
     const Point = struct {
         x: f64,
         y: f64,
+
+        pub fn perturbed(self: @This(), rnd: std.rand.Random) @This() {
+            return .{
+                .x = self.x + rnd.float(f64) * 30 - 15,
+                .y = self.y + rnd.float(f64) * 15 - 7.5,
+            };
+        }
+
+        pub fn random(rnd: std.rand.Random) @This() {
+            return .{
+                .x = rnd.float(f64) * 360 - 180,
+                .y = rnd.float(f64) * 180 - 90,
+            };
+        }
     };
 
+    // used for clustered generation
     const centers = [_]Point{
-        .{ .x = rng.float(f64) * 360 - 180, .y = rng.float(f64) * 180 - 90 },
-        .{ .x = rng.float(f64) * 360 - 180, .y = rng.float(f64) * 180 - 90 },
-        .{ .x = rng.float(f64) * 360 - 180, .y = rng.float(f64) * 180 - 90 },
-        .{ .x = rng.float(f64) * 360 - 180, .y = rng.float(f64) * 180 - 90 },
+        Point.random(rng),
+        Point.random(rng),
     };
 
     for (0..num) |i| {
-        const x1 = centers[i % centers.len].x + rng.float(f64) * 60 - 30;
-        const y1 = centers[i % centers.len].y + rng.float(f64) * 30 - 15;
-        const x2 = centers[(i + 1) % centers.len].x + rng.float(f64) * 60 - 30;
-        const y2 = centers[(i + 1) % centers.len].y + rng.float(f64) * 30 - 15;
+        const p1 = if (dist == .uniform) Point.random(rng) else centers[i % centers.len].perturbed(rng);
+        const p2 = if (dist == .uniform) Point.random(rng) else centers[(i + 1) % centers.len].perturbed(rng);
 
         scratch_mem.reset();
         var json_value = std.json.Value{ .object = std.json.ObjectMap.init(scratch) };
         defer json_value.object.deinit();
 
-        try json_value.object.put("x1", std.json.Value{ .float = x1 });
-        try json_value.object.put("y1", std.json.Value{ .float = y1 });
-        try json_value.object.put("x2", std.json.Value{ .float = x2 });
-        try json_value.object.put("y2", std.json.Value{ .float = y2 });
+        try json_value.object.put("x1", std.json.Value{ .float = p1.x });
+        try json_value.object.put("y1", std.json.Value{ .float = p1.y });
+        try json_value.object.put("x2", std.json.Value{ .float = p2.x });
+        try json_value.object.put("y2", std.json.Value{ .float = p2.y });
 
-        const this_dist = referenceFormula(x1, y1, x2, y2, 6372.8);
+        const this_dist = referenceFormula(p1.x, p1.y, p2.x, p2.y, 6372.8);
         running_sum += this_dist;
         running_avg = running_sum / @intToFloat(f64, i + 1);
 
@@ -96,60 +100,14 @@ fn genClustered(seed: u64, num: u64) !void {
         try out.emitJson(json_value);
     }
 
-    log.debug("average: {d}\n", .{running_avg});
+    log.debug("average of {} points: {d}\n", .{ num, running_avg });
 
     try out.endArray();
     try out.endObject();
     try io.out.print("\n", .{});
 }
 
-fn genUniform(seed: u64, num: u64) !void {
-    var rng_engine = std.rand.DefaultPrng.init(seed);
-    const rng = rng_engine.random();
-
-    var out = std.json.writeStream(io.out, 4);
-
-    try out.beginObject();
-    try out.objectField("pairs");
-    try out.beginArray();
-
-    var scratch_buf: [1024]u8 = undefined;
-    var scratch_mem = std.heap.FixedBufferAllocator.init(&scratch_buf);
-    var scratch = scratch_mem.allocator();
-
-    var running_avg: f64 = 0.0;
-    var running_sum: f64 = 0.0;
-
-    for (0..num) |i| {
-        const x1 = (rng.float(f64) * 360) - 180;
-        const y1 = (rng.float(f64) * 180) - 90;
-        const x2 = (rng.float(f64) * 360) - 180;
-        const y2 = (rng.float(f64) * 180) - 90;
-
-        scratch_mem.reset();
-        var json_value = std.json.Value{ .object = std.json.ObjectMap.init(scratch) };
-        defer json_value.object.deinit();
-
-        try json_value.object.put("x1", std.json.Value{ .float = x1 });
-        try json_value.object.put("y1", std.json.Value{ .float = y1 });
-        try json_value.object.put("x2", std.json.Value{ .float = x2 });
-        try json_value.object.put("y2", std.json.Value{ .float = y2 });
-
-        const this_dist = referenceFormula(x1, y1, x2, y2, 6372.8);
-        running_sum += this_dist;
-        running_avg = running_sum / @intToFloat(f64, i + 1);
-
-        try out.arrayElem();
-        try out.emitJson(json_value);
-    }
-
-    log.debug("average: {d}\n", .{running_avg});
-
-    try out.endArray();
-    try out.endObject();
-    try io.out.print("\n", .{});
-}
-
+// earth_radius is typically 6372.8
 fn referenceFormula(x1: f64, y1: f64, x2: f64, y2: f64, earth_radius: f64) f64 {
     const lat1 = std.math.degreesToRadians(f64, y1);
     const lat2 = std.math.degreesToRadians(f64, y2);
