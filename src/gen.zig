@@ -52,7 +52,10 @@ fn gen(dist: Distribution, seed: u64, num: u64) !void {
     var scratch_mem = std.heap.FixedBufferAllocator.init(&scratch_buf);
     var scratch = scratch_mem.allocator();
 
-    for (0..num) |_| {
+    var running_avg: f64 = 0.0;
+    var running_sum: f64 = 0.0;
+
+    for (0..num) |i| {
         const x1 = (rng.float(f64) * 360) - 180;
         const y1 = (rng.float(f64) * 180) - 90;
         const x2 = (rng.float(f64) * 360) - 180;
@@ -67,12 +70,32 @@ fn gen(dist: Distribution, seed: u64, num: u64) !void {
         try json_value.object.put("x2", std.json.Value{ .float = x2 });
         try json_value.object.put("y2", std.json.Value{ .float = y2 });
 
+        const this_dist = referenceFormula(x1, y1, x2, y2, 6372.8);
+        running_sum += this_dist;
+        running_avg = running_sum / @intToFloat(f64, i + 1);
+
         try out.arrayElem();
         try out.emitJson(json_value);
     }
 
+    log.debug("average: {d}\n", .{running_avg});
+
     try out.endArray();
     try out.endObject();
+    try io.out.print("\n", .{});
+}
+
+fn referenceFormula(x1: f64, y1: f64, x2: f64, y2: f64, earth_radius: f64) f64 {
+    const lat1 = std.math.degreesToRadians(f64, y1);
+    const lat2 = std.math.degreesToRadians(f64, y2);
+    const d_lat = lat2 - lat1;
+
+    const d_lon = std.math.degreesToRadians(f64, x2 - x1);
+
+    const a = @sin(d_lat / 2.0) * @sin(d_lat / 2.0) + @cos(lat1) * @cos(lat2) * @sin(d_lon / 2.0) * @sin(d_lon / 2.0);
+    const c = 2.0 * std.math.asin(@sqrt(a));
+
+    return earth_radius * c;
 }
 
 const std = @import("std");
