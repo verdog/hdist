@@ -54,7 +54,6 @@ const Pair = struct {
 };
 
 fn parseHacky(txt: []const u8) !std.ArrayList(Pair) {
-    log.debug("parseHacky {s}", .{txt});
     const State = enum {
         outer,
         inner,
@@ -66,7 +65,6 @@ fn parseHacky(txt: []const u8) !std.ArrayList(Pair) {
 
     var tokens = std.mem.tokenize(u8, txt, " \n");
     while (tokens.next()) |token| {
-        log.debug("token {c}", .{token[0]});
         switch (token[0]) {
             '{' => {
                 switch (current_state) {
@@ -80,8 +78,6 @@ fn parseHacky(txt: []const u8) !std.ArrayList(Pair) {
                         const x2s = std.mem.sliceTo(tokens.next().?, ','); // value
                         _ = tokens.next(); // key
                         const y2s = tokens.next().?; // value
-
-                        log.debug("{s} {s} {s} {s}", .{ x1s, y1s, x2s, y2s });
 
                         try pairs.append(.{
                             .l = .{

@@ -12,6 +12,7 @@ fn printUsage(argv: [][*:0]u8) void {
 
     const subcommand_fmt = "{s: <8} - {s}\n";
     io.err.print(subcommand_fmt, .{ "gen", "generate input json blob" }) catch {};
+    io.err.print(subcommand_fmt, .{ "calc", "do math on data blob" }) catch {};
 }
 
 fn branchArgv(argv: [][*:0]u8) !void {
@@ -26,6 +27,10 @@ fn branchArgv(argv: [][*:0]u8) !void {
         return try gen.main(argv[1..]);
     }
 
+    if (std.mem.eql(u8, "calc", std.mem.sliceTo(argv[1], '\x00'))) {
+        return try calc.main(argv[1..]);
+    }
+
     printUsage(argv);
     return error.InvalidArguments;
 }
@@ -37,3 +42,4 @@ test {
 const std = @import("std");
 const io = @import("io.zig");
 const gen = @import("gen.zig");
+const calc = @import("calc.zig");

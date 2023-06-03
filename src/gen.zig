@@ -92,7 +92,7 @@ fn gen(dist: Distribution, seed: u64, num: u64) !void {
         try json_value.object.put("x2", std.json.Value{ .float = p2.x });
         try json_value.object.put("y2", std.json.Value{ .float = p2.y });
 
-        const this_dist = referenceFormula(p1.x, p1.y, p2.x, p2.y, 6372.8);
+        const this_dist = calc.naiveHaversineDistance(p1.x, p1.y, p2.x, p2.y);
         running_sum += this_dist;
         running_avg = running_sum / @intToFloat(f64, i + 1);
 
@@ -107,19 +107,6 @@ fn gen(dist: Distribution, seed: u64, num: u64) !void {
     try io.out.print("\n", .{});
 }
 
-// earth_radius is typically 6372.8
-fn referenceFormula(x1: f64, y1: f64, x2: f64, y2: f64, earth_radius: f64) f64 {
-    const lat1 = std.math.degreesToRadians(f64, y1);
-    const lat2 = std.math.degreesToRadians(f64, y2);
-    const d_lat = lat2 - lat1;
-
-    const d_lon = std.math.degreesToRadians(f64, x2 - x1);
-
-    const a = @sin(d_lat / 2.0) * @sin(d_lat / 2.0) + @cos(lat1) * @cos(lat2) * @sin(d_lon / 2.0) * @sin(d_lon / 2.0);
-    const c = 2.0 * std.math.asin(@sqrt(a));
-
-    return earth_radius * c;
-}
-
 const std = @import("std");
 const io = @import("io.zig");
+const calc = @import("calc.zig");
