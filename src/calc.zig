@@ -26,7 +26,7 @@ fn calc(filename: []const u8) !void {
     var file = try std.fs.cwd().openFile(filename, .{});
     defer file.close();
 
-    var txt = try file.readToEndAlloc(heap, 1024 * 1024 * 1024);
+    var txt = try file.readToEndAlloc(heap, 3 * 1024 * 1024 * 1024);
     defer heap.free(txt);
 
     var pairs = try parseHacky(txt);
@@ -40,7 +40,7 @@ fn calc(filename: []const u8) !void {
         running_avg = running_sum / @intToFloat(f64, i + 1);
     }
 
-    log.debug("average of {} pairs: {d}", .{ pairs.items.len, running_avg });
+    log.info("average of {} pairs: {d}", .{ pairs.items.len, running_avg });
 }
 
 const Point = struct {
@@ -63,7 +63,7 @@ fn parseHacky(txt: []const u8) !std.ArrayList(Pair) {
     var pairs = std.ArrayList(Pair).init(heap);
     errdefer pairs.deinit();
 
-    var tokens = std.mem.tokenize(u8, txt, " \n");
+    var tokens = std.mem.tokenize(u8, txt, " \n,");
     while (tokens.next()) |token| {
         switch (token[0]) {
             '{' => {
@@ -71,11 +71,11 @@ fn parseHacky(txt: []const u8) !std.ArrayList(Pair) {
                     .outer => current_state = .inner,
                     .inner => {
                         _ = tokens.next(); // key
-                        const x1s = std.mem.sliceTo(tokens.next().?, ','); // value
+                        const x1s = tokens.next().?; // value
                         _ = tokens.next(); // key
-                        const y1s = std.mem.sliceTo(tokens.next().?, ','); // value
+                        const y1s = tokens.next().?; // value
                         _ = tokens.next(); // key
-                        const x2s = std.mem.sliceTo(tokens.next().?, ','); // value
+                        const x2s = tokens.next().?; // value
                         _ = tokens.next(); // key
                         const y2s = tokens.next().?; // value
 

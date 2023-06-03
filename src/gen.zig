@@ -100,7 +100,7 @@ fn gen(dist: Distribution, seed: u64, num: u64) !void {
         try out.emitJson(json_value);
     }
 
-    log.debug("average of {} points: {d}\n", .{ num, running_avg });
+    log.info("average of {} pairs: {d}", .{ num, running_avg });
 
     try out.endArray();
     try out.endObject();
